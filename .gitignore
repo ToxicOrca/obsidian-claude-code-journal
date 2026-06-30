@@ -1,0 +1,14 @@
+# Mirrored Claude Code transcripts — these contain YOUR session content.
+# Never commit them.
+sessions/
+*.jsonl
+*.cwd.txt
+
+# Obsidian local state (if you keep a vault inside the repo for testing)
+.obsidian/workspace*
+.obsidian/cache
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+node_modules/

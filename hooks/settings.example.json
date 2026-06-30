@@ -1,0 +1,27 @@
+{
+  "_comment": "Add these hooks to your Claude Code settings at ~/.claude/settings.json (Windows: C:\\Users\\<you>\\.claude\\settings.json). If you already have a `hooks` block or existing Stop/SessionEnd hooks, MERGE — add the node command as another entry in the existing `hooks` array rather than replacing it. Replace the path below with the absolute path to export-session.js on your machine. On Windows you can use forward slashes.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/ABSOLUTE/PATH/TO/obsidian-claude-code-journal/exporter/export-session.js\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/ABSOLUTE/PATH/TO/obsidian-claude-code-journal/exporter/export-session.js\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
