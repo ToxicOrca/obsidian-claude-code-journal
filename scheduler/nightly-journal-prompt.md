@@ -25,11 +25,18 @@ Write today's Claude Journal daily note into the Obsidian vault.
 
 ## Steps
 
-### 1. Compute today's date
+### 1. Compute the target date
 
 ```bash
-D="$(TZ="{{TIMEZONE}}" date +%Y-%m-%d)"
-WEEKDAY="$(TZ="{{TIMEZONE}}" date '+%A, %B %-d, %Y')"
+# Dispatch jitter can push a 23:59 run past midnight — target yesterday if before noon.
+D_TODAY="$(TZ="{{TIMEZONE}}" date +%Y-%m-%d)"
+HOUR="$(TZ="{{TIMEZONE}}" date +%H)"
+if [ "$HOUR" -lt 12 ]; then
+  D="$(TZ="{{TIMEZONE}}" date -d 'yesterday' +%Y-%m-%d)"
+else
+  D="$D_TODAY"
+fi
+WEEKDAY="$(TZ="{{TIMEZONE}}" date -d "$D" '+%A, %B %-d, %Y')"
 ```
 
 ### 2. Read Claude Code session transcripts
@@ -52,8 +59,12 @@ For every Git repository under `{{REPOS_PATH}}` (find directories containing
 
 ```bash
 git -C "$repo" log --since="$D 00:00:00" --until="$D 23:59:59" \
-    --pretty='%H|%h|%s' 2>/dev/null
+    --pretty='%H|%h|%s'
 ```
+
+If `git log` fails for a repo (permissions, corruption, etc.), do not silently
+skip it — include it in the output as:
+`- _<repo>: git repo unreadable, skipped._`
 
 For each commit, determine pushed vs. local-only:
 
