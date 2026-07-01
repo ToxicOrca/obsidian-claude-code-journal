@@ -4,6 +4,9 @@ sessions/
 *.jsonl
 *.cwd.txt
 
+# Local config (contains real paths). The .example is tracked.
+journal.config
+
 # Obsidian local state (if you keep a vault inside the repo for testing)
 .obsidian/workspace*
 .obsidian/cache

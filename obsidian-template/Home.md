@@ -9,13 +9,24 @@ A daily log of what was worked on with Claude. A new note lands in `Daily/`
 each evening, automatically.
 
 ## How it works
-- Each day gets its own note in the `Daily/` folder, named `YYYY-MM-DD`.
-- A scheduled summarizer reads that day's Claude Code sessions and Git pushes
-  and fills in the summary.
+- Each day gets its own note in `Daily/`, named `YYYY-MM-DD`.
+- Weekly rollups land in `Weekly/`, monthly summaries in `Monthly/`.
+- Scheduled summarizers read Claude Code sessions and Git pushes and write
+  the notes automatically.
 - Sync (Syncthing, Obsidian Sync, etc.) carries these notes to your other
   devices like any other vault file.
 
 ## Recent days
+*Newest first. New entries appear here automatically.*
+
+- 
+
+## Recent weeks
+*Newest first. New entries appear here automatically.*
+
+- 
+
+## Recent months
 *Newest first. New entries appear here automatically.*
 
 - 

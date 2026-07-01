@@ -1,0 +1,20 @@
+# journal.config — local configuration for your journal setup.
+# Copy this file to `journal.config` and fill in your values.
+# journal.config is git-ignored; this example file is tracked.
+#
+# The scheduler reads these KEY=VALUE pairs at runtime and substitutes
+# the matching {{PLACEHOLDER}} tokens in the prompt files under scheduler/.
+
+# Absolute path to your Obsidian vault root (the folder Obsidian opens).
+VAULT_PATH=/path/to/your/Obsidian/Vault
+
+# Absolute path to the parent directory containing your Git repositories.
+REPOS_PATH=/path/to/your/projects
+
+# Absolute path to the directory where exported Claude Code session
+# transcripts are mirrored (usually <this-repo>/sessions).
+SESSIONS_DIR=/path/to/obsidian-claude-code-journal/sessions
+
+# IANA timezone identifier (e.g. America/New_York, Europe/London, Asia/Tokyo).
+# Used to compute "today" correctly when the runner's clock may be UTC.
+TIMEZONE=America/New_York
