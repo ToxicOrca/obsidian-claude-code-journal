@@ -1,0 +1,41 @@
+<!--
+  Example BODY fragment for a daily journal page.
+
+  This is what the nightly summarizer produces and hands to
+  Publish-JournalToOneNote.ps1 (via -BodyHtmlPath or -BodyHtml). The publisher
+  adds the <!DOCTYPE>/<html>/<head> wrapper and the <h1> date heading, so this
+  file contains ONLY the inner section markup.
+
+  OneNote rendering notes:
+    - OneNote stores pages as HTML. Use plain tags: <h2>, <ul>/<li>, <p>, <b>.
+    - To-dos use the OneNote checkbox tag:  <p data-tag="to-do">item</p>
+      (data-tag="to-do:completed" renders a checked box).
+    - Inline code: wrap in <code>...</code>. Avoid external CSS/JS.
+    - Keep it simple HTML; OneNote ignores most styling it doesn't recognize.
+-->
+
+<h2>&#128296; Tasks &amp; projects worked on</h2>
+<ul>
+  <li><b>my-api</b> &mdash; Added rate-limiting middleware and tests.</li>
+  <li><b>notes-app</b> &mdash; Debugged the sync conflict on startup.</li>
+</ul>
+
+<h2>&#128196; Files created or changed</h2>
+<ul>
+  <li><code>src/middleware/rateLimit.ts</code> &mdash; token-bucket limiter.</li>
+  <li><code>tests/rateLimit.test.ts</code> &mdash; coverage for burst behavior.</li>
+</ul>
+
+<h2>&#128011; GitHub / GitLab</h2>
+<ul>
+  <li><b>my-api</b> &mdash; Add rate-limiting middleware. (commit <code>a1b2c3d</code>, pushed)</li>
+</ul>
+
+<h2>&#128161; Key decisions &amp; takeaways</h2>
+<ul>
+  <li>Chose a token-bucket limiter over fixed-window to smooth bursts.</li>
+</ul>
+
+<h2>&#9989; To-dos / follow-ups</h2>
+<p data-tag="to-do">Wire the limiter config to environment variables.</p>
+<p data-tag="to-do">Add metrics for rejected requests.</p>

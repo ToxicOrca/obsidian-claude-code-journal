@@ -1,54 +1,38 @@
 <div align="center">
 
-# obsidian-claude-code-journal
+# onenote-claude-code-journal
 
-**Automatically keep a daily Obsidian journal of everything you build with Claude Code.**
+**Automatically keep a daily OneNote journal of everything you build with Claude Code.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Made for Claude Code](https://img.shields.io/badge/made%20for-Claude%20Code-blueviolet)](https://claude.com/claude-code)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
 </div>
 
 ---
 
 Each night a summarizer reads that day's Claude Code sessions and your Git
-pushes, then writes a tidy dated note into your Obsidian vault — without you
-lifting a finger.
+pushes, then publishes a tidy dated page into a **OneNote** notebook — without
+you lifting a finger. The page lands in a notebook (default "Claude Journal"),
+in a section for the current month, titled with the date:
 
-```markdown
-# Monday, June 29, 2026
+> **# Friday, June 30, 2026**
+>
+> **🛠️ Tasks & projects worked on**
+> - **my-api** — Added rate-limiting middleware and tests.
+> - **notes-app** — Debugged the sync conflict on startup.
+>
+> **🐙 GitHub / GitLab**
+> - **my-api** — Add rate-limiting middleware. (commit `a1b2c3d`, pushed)
+>
+> **💡 Key decisions & takeaways**
+> - Chose a token-bucket limiter over fixed-window to smooth bursts.
+>
+> **✅ To-dos / follow-ups**
+> - ☐ Wire the limiter config to env vars.
 
-## Tasks & projects worked on
-- **my-api** — Added rate limiting middleware and tests.
-- **notes-app** — Debugged the sync conflict on startup.
-
-## GitHub
-- **my-api** — Add rate limiting middleware. (commit `a1b2c3d`, pushed)
-
-## Key decisions & takeaways
-- Chose a token-bucket limiter over fixed-window to smooth bursts.
-
-## To-dos / follow-ups
-- [ ] Wire the limiter config to env vars.
-```
-
-Because notes are plain Markdown, any sync tool (Syncthing, Obsidian Sync, Git,
-Dropbox) carries them to your phone and other machines.
-
----
-
-## Table of Contents
-
-- [Architecture](#architecture)
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Setup (detailed)](#setup-detailed)
-- [Configuration Reference](#configuration-reference)
-- [Privacy](#privacy)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
+Because the page lives in OneNote, it syncs to every device where you're signed
+in — phone, tablet, other machines — automatically.
 
 ---
 
@@ -64,192 +48,135 @@ Dropbox) carries them to your phone and other machines.
 ┌──────────────────────┐     ┌──────────────────────┐
 │  exporter/           │     │  Git repos            │
 │  export-session.js   │     │  (today's commits)    │
-│                      │     │                       │
 │  ➜ sessions/*.jsonl  │     │  ➜ scan-git-pushes.sh │
 └──────┬───────────────┘     └──────┬───────────────┘
        │                            │
        └──────────┬─────────────────┘
                   ▼
        ┌──────────────────────┐
-       │  Scheduled agents    │
-       │  (read prompt files  │
-       │   + journal.config)  │
+       │  Nightly summarizer  │
+       │  (scheduler +        │
+       │   claude -p)         │
        └──────┬───────────────┘
               ▼
-       ┌──────────────────────┐
-       │  Obsidian vault      │
-       │  Daily/YYYY-MM-DD.md │
-       │  Weekly/YYYY-MM-DD.md│
-       │  Monthly/YYYY-MM.md  │
-       │  Home.md (index)     │
-       └──────────────────────┘
+       ┌──────────────────────────────┐
+       │  Publish-JournalToOneNote.ps1│
+       │  (Microsoft Graph, delegated)│
+       └──────┬───────────────────────┘
+              ▼
+       ┌──────────────────────────────┐
+       │  OneNote                     │
+       │  notebook                    │
+       │   └ yyyy-MM section          │
+       │      └ yyyy-MM-dd page       │
+       └──────────────────────────────┘
 ```
 
-## Features
+## How the pieces map
 
-- **Zero-effort journaling** — notes appear automatically; you never have to
-  write them.
-- **Session export hook** — mirrors Claude Code transcripts to a plain folder
-  in real-time (fires on every response, not just clean exits).
-- **Git push scanner** — finds today's pushed commits across all your repos
-  and groups them by project.
-- **Daily summarizer** — an agent prompt that synthesizes sessions + pushes
-  into a structured daily note with tasks, files changed, decisions, and
-  to-dos. *(Cowork bonus: when run inside Anthropic's Cowork app, the daily
-  summarizer can also capture desktop Claude app conversations. This activates
-  automatically in that environment and is safely ignored everywhere else — no
-  configuration, and not required for the core workflow.)*
-- **Weekly & monthly rollups** — scheduled prompts that aggregate daily notes
-  into weekly highlights and monthly summaries with an emoji activity heatmap.
-- **Obsidian-native** — ships with daily, weekly, and monthly note templates
-  and a `Home.md` index that updates itself.
-- **Sync-friendly** — plain Markdown files work with Syncthing, Obsidian Sync,
-  Git, Dropbox, or anything else.
-- **Privacy-first** — raw transcripts are git-ignored and never leave your
-  machine; only the summary lands in your vault.
+| Stage | File | What it does |
+|-------|------|--------------|
+| Capture | `exporter/export-session.js` | Claude Code hook; mirrors each session transcript to `sessions/`. |
+| Git scan | `scheduler/scan-git-pushes.sh` | Lists today's commits per repo, marked pushed / local-only. |
+| Authorize | `onenote/Initialize-OneNoteAuth.ps1` | One-time device-code sign-in; stores a refresh token (`OneNoteAuth.ps1` reuses it silently). |
+| Summarize | `scheduler/nightly-journal-prompt.md` | The `claude -p` prompt: read sessions + git, compose the day's HTML, call the publisher. |
+| Publish | `onenote/Publish-JournalToOneNote.ps1` | Delegated Graph: find-or-create notebook → month section → daily page; create or idempotently update. |
+| Schedule | `scheduler/Register-JournalTask.ps1` | Registers the nightly Windows Task Scheduler job. |
 
-## Quick Start
+## Requirements
 
-```bash
-# 1. Clone the repo
-git clone https://github.com/<your-user>/obsidian-claude-code-journal.git
+- **Windows** with **PowerShell 7+** (for the publisher and scheduler script).
+- The **Microsoft.Graph** PowerShell module (`Install-Module Microsoft.Graph`).
+- **Node.js** (for the capture hook).
+- A **Microsoft 365 / work-school or personal Microsoft account** with OneNote.
+  No Azure app registration is required — the tool uses Microsoft's public Graph
+  CLI client for a delegated sign-in.
 
-# 2. Create your local config
-cp journal.config.example journal.config
-#    Edit journal.config with your real paths and timezone.
+## Setup
 
-# 3. Register the exporter hook
-#    Add the hooks from hooks/settings.example.json into
-#    ~/.claude/settings.json, replacing the path with the
-#    absolute path to exporter/export-session.js on your machine.
+### 1. Configure (optional)
 
-# 4. Set up the vault
-#    Copy obsidian-template/ files into your Obsidian vault.
-#    Enable the core "Daily notes" and "Templates" plugins.
+Copy `config.example.json` to `config.json` and set your `tenantId` if you want
+to pin sign-in to a specific tenant (default `common` works for any account).
+You can also set a custom `notebookName`.
 
-# 5. Schedule the summarizers
-#    Each scheduled task is a thin wrapper that reads journal.config
-#    and a prompt file from scheduler/, substitutes placeholders,
-#    and runs the prompt. See "Scheduling" below.
+### 2. Authorize OneNote (one-time sign-in)
+
+> **Why interactive?** Microsoft retired **app-only** (certificate) access to the
+> OneNote API on March 31 2025 — the endpoint only accepts **delegated**
+> (app + user) tokens now. You sign in **once** and the publisher reuses a stored
+> refresh token thereafter.
+
+```powershell
+pwsh .\onenote\Initialize-OneNoteAuth.ps1
 ```
 
-## Setup (detailed)
+Follow the device-code prompt (open the URL, enter the code, sign in). This
+stores a DPAPI-encrypted refresh token at
+`%LOCALAPPDATA%\OneNoteClaudeJournal\onenote-refresh.dat` and verifies access by
+listing your notebooks. Re-run only if publishing later reports an
+expired/revoked token (e.g. the job didn't run for >90 days).
 
-### 1. Clone
+### 3. Register the capture hook
 
-```bash
-git clone https://github.com/<your-user>/obsidian-claude-code-journal.git
-```
-
-### 2. Add the export hook to Claude Code
-
-Open your Claude Code settings at `~/.claude/settings.json` and merge in the
-hooks from [`hooks/settings.example.json`](hooks/settings.example.json). Point
-the `command` at the absolute path of `exporter/export-session.js` on your
-machine.
-
-> **Merging:** if you already have a `hooks` block or existing `Stop` /
-> `SessionEnd` hooks, add the node command as **another entry** in the existing
-> `hooks` array — don't replace what's there.
-
-The exporter is wired to both `Stop` (fires after every response) and
-`SessionEnd`. `Stop` keeps the mirror continuously up to date, so you never need
-to exit a session cleanly — closing the terminal is fine.
-
-By default transcripts mirror to `<repo>/sessions/`. To send them elsewhere, set
+Merge the hooks from [`hooks/settings.example.json`](hooks/settings.example.json)
+into your Claude Code settings (`~/.claude/settings.json`; on Windows
+`C:\Users\<you>\.claude\settings.json`), pointing the `command` at the absolute
+path of `exporter/export-session.js`. It's wired to both `Stop` and `SessionEnd`,
+mirroring transcripts to `sessions/`. To send transcripts elsewhere, set
 `CLAUDE_JOURNAL_SESSIONS_DIR` to an absolute path in the hook's environment.
 
-### 3. Set up the Obsidian vault
+### 4. Schedule the nightly run
 
-Copy the files in [`obsidian-template/`](obsidian-template/) into a vault:
-`Daily Note Template.md` into a `Templates/` folder and `Home.md` at the root.
-Enable the core **Daily notes** and **Templates** plugins.
+Fill in the `{{PLACEHOLDERS}}` in
+[`scheduler/nightly-journal-prompt.md`](scheduler/nightly-journal-prompt.md)
+(repo path, sessions dir, repos path, timezone, notebook name). Then register
+the daily 23:59 task:
 
-### 4. Create your local config
-
-```bash
-cp journal.config.example journal.config
+```powershell
+pwsh .\scheduler\Register-JournalTask.ps1
 ```
 
-Edit `journal.config` with your real paths and timezone. This file is
-git-ignored — it stays on your machine. The prompt files read these values at
-runtime through `{{PLACEHOLDERS}}`, so **what you run == what you push**.
+It starts as soon as possible after a missed start, so a sleeping/off PC just
+runs at next wake. Change the time with `-Time "22:30"`; remove with
+`-Unregister`. (Not on Windows? Run `claude -p "$(cat scheduler/nightly-journal-prompt.md)"`
+from cron at 23:59 local instead.)
 
-### 5. Schedule the summarizers
+### 5. Test it
 
-Each scheduled task is a thin wrapper: it reads `journal.config`, substitutes
-the `{{PLACEHOLDER}}` tokens in the corresponding prompt file, and runs the
-result via `claude -p`. You never edit the prompt files for local config — just
-update `journal.config`.
+```powershell
+# Create today's page immediately from the example body
+pwsh .\onenote\Publish-JournalToOneNote.ps1 -BodyHtmlPath .\onenote\page-body-example.html
+# ...or trigger the full scheduled run:
+Start-ScheduledTask -TaskName "Claude OneNote Journal"
+```
 
-| Task | Prompt file | Schedule |
-|------|-------------|----------|
-| Daily | `scheduler/nightly-journal-prompt.md` | 23:59 daily |
-| Weekly | `scheduler/weekly-rollup-prompt.md` | Mon 00:15 |
-| Monthly | `scheduler/monthly-rollup-prompt.md` | 1st of month 00:30 |
+The first run creates the notebook and the current month's section automatically.
 
-### Rollups
-
-**Weekly** notes summarize Mon–Sun into `Weekly/<Monday-date>.md` with
-highlights, projects, GitHub activity, decisions, and carried-forward to-dos.
-
-**Monthly** notes summarize an entire calendar month into `Monthly/YYYY-MM.md`
-and include an emoji activity heatmap (⬜ none · 🟩 light · 🟦 medium · 🟪
-heavy) plus stats.
-
-Both roll-ups read from the daily notes already in your vault — they don't
-re-scan transcripts or git repos.
+> **First-time visibility:** a notebook created via the Graph API does **not**
+> auto-appear in the OneNote app or OneNote.com right away. Open it once from
+> **OneDrive → Documents → Notebooks → (notebook)** (or the page URL the
+> publisher prints). After that it stays in your notebook list and the nightly
+> page updates show up on their own.
 
 ## Configuration Reference
 
 | What | Where | Default |
 |------|-------|---------|
-| All paths & timezone | `journal.config` (repo root) | see `.example` |
 | Transcript mirror dir | `CLAUDE_JOURNAL_SESSIONS_DIR` env var | `<repo>/sessions/` |
-| Note locations | `Daily/`, `Weekly/`, `Monthly/` in vault | — |
+| Sign-in tenant | `tenantId` in `config.json` | `common` |
+| Notebook name | `notebookName` in `config.json` / `-NotebookName` | `Claude Journal` |
+| Section naming | (fixed) one per month | `yyyy-MM` |
+| Page title | (fixed) ISO date | `yyyy-MM-dd` |
+| Refresh-token store | DPAPI file (per-user) | `%LOCALAPPDATA%\OneNoteClaudeJournal\onenote-refresh.dat` |
+| Run time | `-Time` on `Register-JournalTask.ps1` | `23:59` |
 
 ## Privacy
 
 Mirrored transcripts (`sessions/*.jsonl`) contain **your** conversations and
-code. They are git-ignored by default — **never commit them**. The journal notes
-themselves live in your Obsidian vault, not in this repo.
-
-## File structure
-
-```
-obsidian-claude-code-journal/
-├── journal.config.example   # Template config — copy to journal.config
-├── journal.config            # Your local config (git-ignored)
-├── exporter/
-│   └── export-session.js     # Hook: mirrors transcripts to sessions/
-├── hooks/
-│   └── settings.example.json # Claude Code hook registration
-├── scheduler/
-│   ├── nightly-journal-prompt.md   # Daily summarizer prompt
-│   ├── weekly-rollup-prompt.md     # Weekly rollup prompt
-│   ├── monthly-rollup-prompt.md    # Monthly rollup prompt
-│   └── scan-git-pushes.sh         # Helper: scan repos for today's commits
-├── obsidian-template/
-│   ├── Daily Note Template.md
-│   ├── Weekly Note Template.md
-│   ├── Monthly Note Template.md
-│   └── Home.md
-├── docs/
-│   └── how-it-works.md
-└── sessions/                 # Mirrored transcripts (git-ignored)
-```
-
-## Roadmap
-
-- [ ] `SessionEnd`-only mode (skip per-response mirroring for lower overhead)
-- [ ] Native summarizer that doesn't need an agent
-- [ ] Kanban-board output (group to-dos across days)
-- [ ] Support for other note apps (Notion, Logseq, Bear)
-
-## Contributing
-
-Issues and PRs welcome! If you have an idea — session filters, alternative
-output formats, new note-app targets — open an issue or send a PR.
+code. They are git-ignored by default — **never commit them**. The refresh token
+is encrypted at rest and stored outside the repo. Only the daily summary is
+published to OneNote.
 
 ## License
 
