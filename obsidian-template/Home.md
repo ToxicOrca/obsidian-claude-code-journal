@@ -11,10 +11,16 @@ each evening, automatically.
 ## How it works
 - Each day gets its own note in `Daily/`, named `YYYY-MM-DD`.
 - Weekly rollups land in `Weekly/`, monthly summaries in `Monthly/`.
+- Per-project pages live in `Projects/`, auto-built from daily note tags.
 - Scheduled summarizers read Claude Code sessions and Git pushes and write
   the notes automatically.
 - Sync (Syncthing, Obsidian Sync, etc.) carries these notes to your other
   devices like any other vault file.
+
+## Projects
+*Auto-generated project pages. Updated by the project-pages summarizer.*
+
+- 
 
 ## Recent days
 *Newest first. New entries appear here automatically.*

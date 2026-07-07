@@ -23,7 +23,7 @@
     (works for both work/school and personal Microsoft accounts).
 
 .NOTES
-    Part of onenote-claude-code-journal. MIT licensed.
+    Part of obsidian-claude-code-journal. MIT licensed.
 #>
 
 #Requires -Version 7.0

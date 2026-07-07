@@ -55,7 +55,7 @@
     Publishes (or updates) the page for a specific date.
 
 .NOTES
-    Part of onenote-claude-code-journal. MIT licensed.
+    Part of obsidian-claude-code-journal. MIT licensed.
     Version: 1.0
 #>
 

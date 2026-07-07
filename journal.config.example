@@ -18,3 +18,18 @@ SESSIONS_DIR=/path/to/obsidian-claude-code-journal/sessions
 # IANA timezone identifier (e.g. America/New_York, Europe/London, Asia/Tokyo).
 # Used to compute "today" correctly when the runner's clock may be UTC.
 TIMEZONE=America/New_York
+
+# Which note-taking backend(s) to publish to.
+# Options: "obsidian" (default), "onenote", "both"
+# - obsidian: writes Markdown daily notes into VAULT_PATH (original behavior).
+# - onenote:  publishes HTML pages to a OneNote notebook via Microsoft Graph.
+# - both:     runs both backends on each nightly summarizer run.
+BACKEND=obsidian
+
+# ---------- OneNote-only settings (ignored when BACKEND=obsidian) ----------
+
+# Absolute path to this repo's root (used to locate the OneNote scripts).
+REPO_PATH=/path/to/obsidian-claude-code-journal
+
+# OneNote notebook display name (created automatically if missing).
+NOTEBOOK_NAME=Claude Journal
