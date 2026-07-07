@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy to config.json and edit. Both keys are optional.",
+  "_tenantId": "Azure AD tenant id, or 'common' (any account), 'organizations' (work/school), 'consumers' (personal). Default: common.",
+  "tenantId": "common",
+  "_notebookName": "OneNote notebook to publish into (created if missing). Default: Claude Journal. Pass -NotebookName to the publisher to override per-run.",
+  "notebookName": "Claude Journal"
+}

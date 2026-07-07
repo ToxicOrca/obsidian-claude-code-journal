@@ -11,6 +11,15 @@ journal.config
 .obsidian/workspace*
 .obsidian/cache
 
+# OneNote local config (contains tenant-specific settings). The .example is tracked.
+config.json
+
+# Generated nightly runner script (created by Register-JournalTask.ps1)
+scheduler/Run-NightlyJournal.ps1
+
+# Nightly run logs
+logs/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db

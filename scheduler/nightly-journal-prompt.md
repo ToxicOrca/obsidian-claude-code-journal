@@ -23,6 +23,29 @@ Write today's Claude Journal daily note into the Obsidian vault.
 - **Timezone:** `{{TIMEZONE}}` — always compute the local date with
   `TZ="{{TIMEZONE}}" date +%Y-%m-%d` if the runner's clock may be UTC.
 
+### Slug convention
+
+Whenever a project/repo name is used as a tag or identifier, normalize it to a
+**slug**: lowercase, replace any non-alphanumeric character with a hyphen, and
+collapse consecutive hyphens. For example: `My Cool_App` → `my-cool-app`.
+
+### Controlled topic vocabulary
+
+When auto-tagging (Step 7), use **only** these topic tags:
+
+| Tag | When to apply |
+|-----|---------------|
+| `topic/feature` | New functionality was added |
+| `topic/bug-fix` | A bug was fixed |
+| `topic/refactor` | Code was restructured without behavior change |
+| `topic/docs` | Documentation or comments were the primary work |
+| `topic/test` | Tests were added or fixed |
+| `topic/devops` | CI/CD, build, deploy, or infrastructure work |
+| `topic/design` | UI/UX, styling, or layout work |
+
+Only add a topic tag when the day's content **clearly** supports it. When in
+doubt, omit — a missing tag is better than a wrong one.
+
 ## Steps
 
 ### 1. Compute the target date
@@ -90,12 +113,13 @@ Create or update `{{VAULT_PATH}}/Daily/${D}.md` with this exact structure:
 ---
 type: claude-journal
 date: <D>
-tags: [claude, journal]
+tags: [claude, journal, project/<slug>, ..., topic/<topic>, ...]
 ---
 
 # <Weekday, Month D, YYYY>
 
 ## 🛠️ Tasks & projects worked on
+- **<project>** — what was done. #project/<slug>
 - ...
 
 ## 📄 Files created or changed
@@ -111,6 +135,9 @@ tags: [claude, journal]
 - [ ] ...
 ```
 
+Each project bullet in "Tasks & projects worked on" must include an inline
+`#project/<slug>` tag so the Obsidian graph links resolve to the project page.
+
 If the note already exists, **merge** new content into the existing sections
 rather than duplicating entries.
 
@@ -124,6 +151,23 @@ Add `- [[<D>]]` to the top of the "Recent days" list in
 If there was no Claude Code activity and no Git commits today, still create the
 note with each section showing `- _Nothing logged today._` so the daily cadence
 is unbroken.
+
+### 7. Auto-tag the note
+
+After building the note content, derive tags and write them into the frontmatter
+`tags:` array. The base tags `[claude, journal]` are always present. Add:
+
+1. **Project tags** — one `project/<slug>` tag per project/repo touched today.
+   Derive the slug from the repo directory name (from the git scan) and/or the
+   `.cwd.txt` sidecar basename, using the slug convention above.
+2. **Topic tags** — from the controlled vocabulary above. Scan the day's work
+   (commit messages, session content, files changed) and add only the topics
+   that clearly apply. Typical days get 1–3 topic tags; it's fine to add none.
+
+The final `tags:` array should look like:
+```yaml
+tags: [claude, journal, project/my-api, project/notes-app, topic/feature, topic/bug-fix]
+```
 
 ---
 
