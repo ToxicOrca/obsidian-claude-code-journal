@@ -17,7 +17,7 @@ two halves:
 2. **Summarizers (scheduled tasks, nightly):** agent prompts (in `scheduler/`)
    that read those transcripts + today's Git pushes and write structured notes.
    - **Obsidian backend:** Markdown notes into the vault (`Daily/`, `Weekly/`,
-     `Monthly/`, `Projects/`, plus a `Home.md` index).
+     `Monthly/`, `Yearly/`, `Projects/`, plus a `Home.md` index).
    - **OneNote backend:** HTML pages into a OneNote notebook via Microsoft Graph
      (one section per month, one page per day).
 
@@ -36,6 +36,7 @@ git-ignored.
   - `nightly-journal-onenote-prompt.md` — OneNote daily page builder.
   - `weekly-rollup-prompt.md` — weekly rollup (Obsidian only).
   - `monthly-rollup-prompt.md` — monthly rollup + activity heatmap (Obsidian only).
+  - `yearly-review-prompt.md` — Year in Review builder, runs Jan 1 (Obsidian only).
   - `project-pages-prompt.md` — per-project page (re)builder (Obsidian only).
   - `scan-git-pushes.sh` — helper to list today's commits per repo (pushed vs local).
   - `Register-JournalTask.ps1` — registers a Windows Task Scheduler job (OneNote).
@@ -45,7 +46,7 @@ git-ignored.
   - `Publish-JournalToOneNote.ps1` — Microsoft Graph publisher (notebook > section > page).
   - `page-body-example.html` — example HTML body fragment.
 - `hooks/settings.example.json` — how to register the exporter hook.
-- `obsidian-template/` — vault templates (Daily/Weekly/Monthly/Project) + `Home.md`.
+- `obsidian-template/` — vault templates (Daily/Weekly/Monthly/Yearly/Project) + `Home.md`.
 - `journal.config` — local paths, timezone, backend selection (git-ignored; see below).
 - `journal.config.example` — template for the above.
 - `config.example.json` — OneNote-specific config template (tenantId, notebookName).
@@ -101,9 +102,14 @@ casually):**
 - **Location (first match wins):** `$CLAUDE_JOURNAL_SESSIONS_DIR` if set,
   otherwise `<repo>/sessions/`.
 - **Transcript file:** a copy of the session `.jsonl`, named
-  **`YYYY-MM-DD__<sessionId>.jsonl`**. The date is the machine's local date
-  (`localDate()`; override by setting `TZ` in the hook's environment). The
-  session id is sanitized to `[A-Za-z0-9_-]`.
+  **`YYYY-MM-DD__<sessionId>.jsonl`**. The date is the **session start date** —
+  the local date of the first timestamped entry in the transcript
+  (`sessionStartDate()`; falls back to "now" if no timestamp is found; override
+  the timezone by setting `TZ` in the hook's environment). Start-date naming
+  keeps one stable filename when a session runs past midnight — the daily
+  summarizer handles the spillover by checking the previous day's files for
+  entries timestamped on the target day. The session id is sanitized to
+  `[A-Za-z0-9_-]` (falling back to `session` if nothing survives).
 - **Sidecar:** if `cwd` was provided, a **`YYYY-MM-DD__<sessionId>.cwd.txt`** file
   containing the working directory path, so the summarizer can name the project.
 
@@ -124,8 +130,9 @@ SKILL.md files** — edit the prompts here, not the tasks.
 | Task ID | Purpose | Prompt file used | Cron | Approx. time |
 |---------|---------|------------------|------|--------------|
 | `claude-journal-daily` | Summarize each day's Claude work into a daily note | `scheduler/nightly-journal-prompt.md` | `59 23 * * *` | ~midnight, daily |
-| `claude-journal-weekly` | Summarize the week's daily notes into a weekly rollup | `scheduler/weekly-rollup-prompt.md` | `59 23 * * 0` | Sun→Mon boundary, ~12:07 AM Mon |
+| `claude-journal-weekly` | Summarize the week's daily notes into a weekly rollup | `scheduler/weekly-rollup-prompt.md` | `15 0 * * 1` | Monday ~12:15 AM |
 | `claude-journal-monthly` | Summarize the previous month into a monthly rollup w/ heatmap | `scheduler/monthly-rollup-prompt.md` | `30 0 1 * *` | Day 1 of month, ~12:30 AM |
+| `claude-journal-yearly` | Build the Year in Review note for the year that ended | `scheduler/yearly-review-prompt.md` | `30 1 1 1 *` | Jan 1, ~1:30 AM |
 | `claude-journal-projects` | Rebuild per-project pages from tagged daily notes | `scheduler/project-pages-prompt.md` | `0 1 * * *` | ~1:08 AM, daily |
 
 Notes:
@@ -145,6 +152,7 @@ exporter output (sessions/*.jsonl + .cwd.txt)
         │       ↓  (daily notes read by)
         │       ├─ claude-journal-weekly    → Weekly/<Monday>.md
         │       ├─ claude-journal-monthly   → Monthly/YYYY-MM.md
+        │       ├─ claude-journal-yearly    → Yearly/YYYY.md  (also reads Monthly/)
         │       └─ claude-journal-projects  → Projects/<slug>.md
         │
         └─ OneNote nightly prompt  →  OneNote page (yyyy-MM-dd)
@@ -169,6 +177,9 @@ pipeline and vice versa.
 type: claude-journal
 date: <YYYY-MM-DD>
 tags: [claude, journal, project/<slug>, ..., topic/<topic>, ...]
+sessions: <N>
+commits: <N>
+tokens: <N>
 ---
 
 # <Weekday, Month D, YYYY>
@@ -189,6 +200,13 @@ Contract points the downstream tasks depend on:
 - **Frontmatter tags:** base `[claude, journal]` always; one `project/<slug>` per
   repo touched; `topic/<t>` from the controlled vocabulary only
   (`feature, bug-fix, refactor, docs, test, devops, design`).
+- **Numeric frontmatter fields:** `sessions`, `commits`, `tokens` (integers,
+  `0` on no-activity days). These drive the Home.md streak, the weekly/monthly
+  stats, the monthly/yearly heatmaps (`activity = commits + sessions`), and are
+  Dataview-queryable. Removing or renaming them breaks all of those.
+- **Link form:** links to daily notes are always folder-qualified —
+  `[[Daily/<date>|<date>]]` — because `Weekly/<Monday>.md` shares the date-style
+  filename and a bare `[[<date>]]` is ambiguous on Mondays.
 - **`project/<slug>` frontmatter tags are how `claude-journal-projects`
   discovers projects.** Each project bullet also carries an inline
   `#project/<slug>` tag for Obsidian graph links. Slug convention: lowercase,
@@ -205,20 +223,27 @@ Contract points the downstream tasks depend on:
 - Monthly: `Monthly/YYYY-MM.md`, `type: claude-journal-monthly`,
   `tags: [claude, journal, monthly]`, includes an emoji heatmap
   (⬜ none · 🟩 light · 🟦 medium · 🟪 heavy).
+- Yearly: `Yearly/YYYY.md`, `type: claude-journal-yearly`,
+  `tags: [claude, journal, yearly]`, full-year heatmap (same emoji scale, one
+  row per month) + totals. **Idempotent** — regenerated from monthly + daily
+  notes.
 - Projects: `Projects/<slug>.md`, `type: claude-project`,
   `tags: [claude, project, project/<slug>]`. **Idempotent** — always regenerated
   from daily notes; never appended.
-- All four update `Home.md` (Recent days / Recent weeks / Recent months /
-  Projects sections).
+- All of these update `Home.md` (Recent days / Recent weeks / Recent months /
+  Recent years / Projects sections). The daily task additionally maintains the
+  `## 🔥 Streak` section at the top of `Home.md` (current + longest streak,
+  computed from the daily notes' numeric frontmatter).
 
 ## Vault paths at a glance
 
 ```
 <VAULT_PATH>/
-├── Home.md                 # self-updating index
+├── Home.md                 # self-updating index (incl. 🔥 Streak section)
 ├── Daily/YYYY-MM-DD.md     # written by claude-journal-daily
 ├── Weekly/<Monday>.md      # written by claude-journal-weekly
 ├── Monthly/YYYY-MM.md      # written by claude-journal-monthly
+├── Yearly/YYYY.md          # written by claude-journal-yearly (Jan 1)
 └── Projects/<slug>.md      # rebuilt by claude-journal-projects
 ```
 
@@ -227,8 +252,9 @@ Contract points the downstream tasks depend on:
 - **Change the exporter output format** → also update both
   `scheduler/nightly-journal-prompt.md` and
   `scheduler/nightly-journal-onenote-prompt.md` (glob pattern + sidecar read).
-- **Change the Obsidian daily note format** (headings, frontmatter, tags,
-  filename) → also update `weekly-`, `monthly-`, and `project-pages-` prompts,
+- **Change the Obsidian daily note format** (headings, frontmatter — including
+  the numeric `sessions`/`commits`/`tokens` fields — tags, filename) → also
+  update `weekly-`, `monthly-`, `yearly-review-`, and `project-pages-` prompts,
   which parse those daily notes. (The OneNote prompt is independent.)
 - **Change the OneNote page HTML structure** → update
   `nightly-journal-onenote-prompt.md` and `onenote/page-body-example.html`.
@@ -243,14 +269,16 @@ Contract points the downstream tasks depend on:
 
 ## Known inconsistencies to be aware of
 
-- The README schedule table and the header comments in `project-pages-prompt.md`
-  (which suggest 00:05 / 00:20 / 23:30) **do not match the actual configured
-  cron times** (projects runs `0 1 * * *` ≈ 1:08 AM; daily `59 23 * * *`). The
-  live cron in the scheduled tasks is authoritative; the doc comments are stale.
-- `claude-journal-weekly` fires at the Sunday→Monday boundary (`59 23 * * 0`,
-  Sunday 23:59) — essentially the same moment as Sunday's `claude-journal-daily`
-  run (`59 23 * * *`). Because the weekly rollup reads Sunday's daily note, there
-  is a potential race where the weekly rollup could run before Sunday's daily
-  note is finished, causing it to miss the last day of the week. If weekly
-  rollups ever look like they're dropping Sundays, this timing overlap is the
-  likely cause.
+- (Resolved 2026-07) The weekly task previously fired Sunday 23:59
+  (`59 23 * * 0`) while its prompt assumed a Monday run, which made every
+  weekly rollup cover the week *before* last (8 days stale). The cron is now
+  `15 0 * * 1` (Monday 00:15) and the prompt's week math additionally handles
+  a late-Sunday run defensively — safe under either schedule.
+- (Resolved 2026-07) The README/prompt schedule comments were realigned with
+  the live crons (projects `0 1 * * *`, daily `59 23 * * *`). If schedules are
+  changed again, the live cron in the scheduled tasks is authoritative —
+  update the docs to match.
+- Daily notes written **before July 2026** lack the numeric frontmatter fields
+  (`sessions`/`commits`/`tokens`). Streaks, heatmaps, and rollup stats treat
+  such notes as active if they are not the `_Nothing logged today._` fallback,
+  estimating from section text where needed.

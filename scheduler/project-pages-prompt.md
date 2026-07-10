@@ -5,8 +5,9 @@ one note per project under the vault's `Projects/` folder. The scheduler reads
 `journal.config` from the repo root and substitutes the `{{PLACEHOLDERS}}` below
 before invoking this prompt.
 
-Schedule this **daily, shortly after the daily summarizer** (e.g. 23:30 or
-00:20) or weekly — it is idempotent and safe to run at any cadence.
+Schedule this **daily, after the daily summarizer has finished** (the daily
+runs at 23:59, so e.g. 00:20–01:00) or weekly — it is idempotent and safe to
+run at any cadence.
 
 > **Note:** this is a separate scheduled task. Add a thin wrapper on your side
 > (same pattern as daily/weekly/monthly: read `journal.config`, substitute
@@ -71,9 +72,13 @@ the timeline entries.
 ## 📅 Timeline
 *Reverse chronological. Each entry links back to the daily note.*
 
-- [[YYYY-MM-DD]] — One-line summary of the day's work on this project.
-- [[YYYY-MM-DD]] — ...
+- [[Daily/YYYY-MM-DD|YYYY-MM-DD]] — One-line summary of the day's work on this project.
+- [[Daily/YYYY-MM-DD|YYYY-MM-DD]] — ...
 - ...
+
+Always use the folder-qualified `Daily/` link form: weekly notes are also
+named by date (`Weekly/<Monday>.md`), so a bare `[[YYYY-MM-DD]]` is ambiguous
+whenever the date is a Monday.
 
 ## 🐙 Commits
 - `<short>` — <subject> (<date>, pushed/local-only)

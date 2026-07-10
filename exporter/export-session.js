@@ -32,12 +32,37 @@ function sessionsDir() {
   return path.join(__dirname, "..", "sessions");
 }
 
-function localDate() {
-  // Uses the machine's local timezone. To pin a timezone, set TZ in the
-  // environment that runs the hook.
-  const d = new Date();
+function fmtLocalDate(d) {
+  // Formats a Date in the machine's local timezone. To pin a timezone, set TZ
+  // in the environment that runs the hook.
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function sessionStartDate(src) {
+  // Date the mirror file by the session's FIRST entry timestamp — not the
+  // copy time. This keeps one stable filename for a session that runs past
+  // midnight, instead of creating a second next-day copy whose full contents
+  // would be re-summarized (double-counted) by the next day's journal run.
+  // Falls back to "now" if no timestamp can be found.
+  try {
+    const fd = fs.openSync(src, "r");
+    const buf = Buffer.alloc(65536);
+    const n = fs.readSync(fd, buf, 0, buf.length, 0);
+    fs.closeSync(fd);
+    for (const line of buf.toString("utf8", 0, n).split("\n")) {
+      if (!line.trim()) continue;
+      let obj;
+      try { obj = JSON.parse(line); } catch { continue; }
+      if (obj && obj.timestamp) {
+        const d = new Date(obj.timestamp);
+        if (!isNaN(d)) return fmtLocalDate(d);
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return fmtLocalDate(new Date());
 }
 
 function readStdin() {
@@ -55,10 +80,13 @@ try {
   if (src && fs.existsSync(src)) {
     const outDir = sessionsDir();
     fs.mkdirSync(outDir, { recursive: true });
-    const sid = (data.session_id || path.basename(src, ".jsonl") || "session")
+    // Sanitize FIRST, then fall back — so an id made entirely of invalid
+    // characters still yields a usable filename instead of `<date>__.jsonl`.
+    let sid = (data.session_id || path.basename(src, ".jsonl") || "")
       .toString()
       .replace(/[^A-Za-z0-9_-]/g, "");
-    const dest = path.join(outDir, `${localDate()}__${sid}.jsonl`);
+    if (!sid) sid = "session";
+    const dest = path.join(outDir, `${sessionStartDate(src)}__${sid}.jsonl`);
     fs.copyFileSync(src, dest);
     // Sidecar with the working directory, so the summarizer can name the project.
     if (data.cwd) {

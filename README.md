@@ -123,6 +123,12 @@ automatically to every device where you're signed in.
   vocabulary (feature, bug-fix, refactor, docs, test, devops, design). Inline
   `#project/<slug>` references in project bullets make the Obsidian graph
   light up.
+- **Streaks & stats** *(Obsidian only)* — every daily note carries
+  Dataview-queryable numeric frontmatter (`sessions`, `commits`, `tokens`),
+  and `Home.md` shows your current and longest daily streak, updated nightly.
+- **Year in Review** *(Obsidian only)* — each January 1st, a `Yearly/YYYY.md`
+  note with a full-year emoji heatmap, top projects, topic mix, and
+  by-the-numbers totals for the year.
 - **Per-project pages** *(Obsidian only)* — a scheduled prompt rebuilds
   `Projects/<slug>.md` for every project seen in your daily notes:
   reverse-chronological timeline, commit history, stats, and open to-dos — all
@@ -273,9 +279,10 @@ update `journal.config`.
 | Task | Prompt file | Schedule |
 |------|-------------|----------|
 | Daily | `scheduler/nightly-journal-prompt.md` | 23:59 daily |
-| Projects | `scheduler/project-pages-prompt.md` | 00:05 daily (after daily) |
+| Projects | `scheduler/project-pages-prompt.md` | 01:00 daily (after daily) |
 | Weekly | `scheduler/weekly-rollup-prompt.md` | Mon 00:15 |
 | Monthly | `scheduler/monthly-rollup-prompt.md` | 1st of month 00:30 |
+| Yearly | `scheduler/yearly-review-prompt.md` | Jan 1 01:30 |
 
 **OneNote scheduled task** (when `BACKEND=onenote` or `both`):
 
@@ -307,7 +314,11 @@ highlights, projects, GitHub activity, decisions, and carried-forward to-dos.
 and include an emoji activity heatmap (the squares: none, light, medium, heavy)
 plus stats.
 
-Both roll-ups read from the daily notes already in your vault — they don't
+**Yearly** notes ("Year in Review") land in `Yearly/YYYY.md` each January 1st:
+a full-year emoji heatmap, highlights, top projects, topic mix, and totals
+(sessions, commits, tokens, longest streak).
+
+All roll-ups read from the daily notes already in your vault — they don't
 re-scan transcripts or git repos.
 
 ### Per-project pages *(Obsidian only)*
@@ -341,7 +352,7 @@ Start-ScheduledTask -TaskName "Claude OneNote Journal"
 | Backend selection | `BACKEND` in `journal.config` | `obsidian` |
 | All paths & timezone | `journal.config` (repo root) | see `.example` |
 | Transcript mirror dir | `CLAUDE_JOURNAL_SESSIONS_DIR` env var | `<repo>/sessions/` |
-| Note locations (Obsidian) | `Daily/`, `Weekly/`, `Monthly/`, `Projects/` in vault | -- |
+| Note locations (Obsidian) | `Daily/`, `Weekly/`, `Monthly/`, `Yearly/`, `Projects/` in vault | -- |
 | Sign-in tenant (OneNote) | `tenantId` in `config.json` | `common` |
 | Notebook name (OneNote) | `NOTEBOOK_NAME` in `journal.config` or `config.json` | `Claude Journal` |
 | Section naming (OneNote) | (fixed) one per month | `yyyy-MM` |
@@ -375,6 +386,7 @@ obsidian-claude-code-journal/
 │   ├── project-pages-prompt.md           # Per-project page builder (Obsidian)
 │   ├── weekly-rollup-prompt.md           # Weekly rollup (Obsidian)
 │   ├── monthly-rollup-prompt.md          # Monthly rollup (Obsidian)
+│   ├── yearly-review-prompt.md           # Year in Review (Obsidian)
 │   ├── scan-git-pushes.sh               # Helper: scan repos for today's commits
 │   └── Register-JournalTask.ps1         # Windows Task Scheduler (OneNote)
 ├── onenote/
@@ -386,6 +398,7 @@ obsidian-claude-code-journal/
 │   ├── Daily Note Template.md
 │   ├── Weekly Note Template.md
 │   ├── Monthly Note Template.md
+│   ├── Yearly Note Template.md
 │   ├── Project Page Template.md
 │   └── Home.md
 ├── docs/

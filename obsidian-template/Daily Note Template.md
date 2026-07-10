@@ -7,6 +7,11 @@ tags: [claude, journal]
 #   topic/<topic>        — from controlled vocabulary:
 #     topic/feature, topic/bug-fix, topic/refactor,
 #     topic/docs, topic/test, topic/devops, topic/design
+# Numeric fields below are filled by the daily summarizer —
+# they're Dataview-queryable and drive streaks, heatmaps, and rollup stats.
+sessions: 0
+commits: 0
+tokens: 0
 ---
 
 # {{date:dddd, MMMM D, YYYY}}

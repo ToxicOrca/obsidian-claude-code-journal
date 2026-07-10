@@ -13,7 +13,9 @@ D="$(date +%Y-%m-%d)"
 while IFS= read -r g; do
   r="$(dirname "$g")"
   name="$(basename "$r")"
-  commits="$(git -C "$r" log --since="$D 00:00:00" --until="$D 23:59:59" \
+  # --all: walk every branch, not just the checked-out one — otherwise commits
+  # made on a feature branch disappear from the scan after switching back.
+  commits="$(git -C "$r" log --all --since="$D 00:00:00" --until="$D 23:59:59" \
               --pretty='%H|%h|%s' 2>/dev/null || true)"
   [ -z "$commits" ] && continue
   while IFS='|' read -r full short subj; do
