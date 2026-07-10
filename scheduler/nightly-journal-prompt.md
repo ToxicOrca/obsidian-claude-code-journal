@@ -66,6 +66,13 @@ WEEKDAY="$(TZ="{{TIMEZONE}}" date -d "$D" '+%A, %B %-d, %Y')"
 
 In `{{SESSIONS_DIR}}`, find all files matching `${D}__*.jsonl`.
 
+Transcript files are named by the **session start date**. A session that runs
+past midnight keeps its start-date filename, so also check the **previous
+day's** files (`$(date -d "$D - 1 day" +%Y-%m-%d)__*.jsonl`) for entries whose
+`timestamp` falls on `$D` — that spillover work belongs in today's note. When
+summarizing a spillover file, use **only** the entries timestamped on `$D`;
+everything earlier was already covered by yesterday's note.
+
 For each transcript:
 - Read the `.cwd.txt` sidecar (if present) to identify the project.
 - Parse the JSONL: each line is a JSON object. User and assistant messages are
@@ -74,6 +81,11 @@ For each transcript:
   messages rather than reading every line.
 - Extract: what was worked on, key files touched, decisions made, and any
   explicit to-do items or follow-ups the user mentioned.
+- Count the day's **sessions** (number of distinct transcripts with entries on
+  `$D`) and sum the day's **tokens**: for each assistant entry, add
+  `.message.usage.input_tokens + .message.usage.output_tokens` (skip entries
+  without a `usage` object; count each entry once). These feed the frontmatter
+  in Step 4.
 
 ### 3. Scan Git repos for today's commits
 
@@ -81,9 +93,13 @@ For every Git repository under `{{REPOS_PATH}}` (find directories containing
 `.git`, up to 3 levels deep):
 
 ```bash
-git -C "$repo" log --since="$D 00:00:00" --until="$D 23:59:59" \
+git -C "$repo" log --all --since="$D 00:00:00" --until="$D 23:59:59" \
     --pretty='%H|%h|%s'
 ```
+
+`--all` is required: plain `git log` only walks the checked-out branch, so
+commits made on a feature branch would vanish from the journal after switching
+back to `main`.
 
 If `git log` fails for a repo (permissions, corruption, etc.), do not silently
 skip it — include it in the output as:
@@ -114,6 +130,9 @@ Create or update `{{VAULT_PATH}}/Daily/${D}.md` with this exact structure:
 type: claude-journal
 date: <D>
 tags: [claude, journal, project/<slug>, ..., topic/<topic>, ...]
+sessions: <N>
+commits: <N>
+tokens: <N>
 ---
 
 # <Weekday, Month D, YYYY>
@@ -138,19 +157,46 @@ tags: [claude, journal, project/<slug>, ..., topic/<topic>, ...]
 Each project bullet in "Tasks & projects worked on" must include an inline
 `#project/<slug>` tag so the Obsidian graph links resolve to the project page.
 
+The numeric frontmatter fields are the machine-readable record of the day
+(Dataview-queryable):
+- `sessions` — distinct transcripts with entries on `$D` (from Step 2).
+- `commits` — total commits found by the git scan (pushed + local-only).
+- `tokens` — summed input+output tokens from Step 2 (`0` if none).
+
 If the note already exists, **merge** new content into the existing sections
-rather than duplicating entries.
+rather than duplicating entries (recompute the numeric fields from scratch —
+don't add to the old values).
 
 ### 5. Update Home.md
 
-Add `- [[<D>]]` to the top of the "Recent days" list in
-`{{VAULT_PATH}}/Home.md` if not already present.
+Add `- [[Daily/<D>|<D>]]` to the top of the "Recent days" list in
+`{{VAULT_PATH}}/Home.md` if not already present. Always use the
+folder-qualified `Daily/` link: weekly notes are also named by date, so a bare
+`[[<D>]]` can ambiguously resolve to `Weekly/<D>.md` when `<D>` is a Monday.
+
+Then update the "🔥 Streak" section (create it directly under the `# 🤖 Claude
+Journal` heading if missing):
+
+1. An **active day** is a daily note whose frontmatter has `sessions > 0` or
+   `commits > 0` (notes written before these fields existed count as active if
+   they are not the `_Nothing logged today._` fallback).
+2. Walk `Daily/*.md` filenames backwards from `$D` to find the **current
+   streak** (consecutive active days ending at `$D`; `0` if today was
+   inactive) and the **longest streak** ever.
+3. Write:
+
+```markdown
+## 🔥 Streak
+- Current: **N days** (as of <D>)
+- Longest: **N days** (<start> → <end>)
+```
 
 ### 6. No-activity fallback
 
 If there was no Claude Code activity and no Git commits today, still create the
 note with each section showing `- _Nothing logged today._` so the daily cadence
-is unbroken.
+is unbroken. Set `sessions: 0`, `commits: 0`, `tokens: 0` in the frontmatter —
+the streak and rollup logic depend on these zeros.
 
 ### 7. Auto-tag the note
 
@@ -164,9 +210,12 @@ After building the note content, derive tags and write them into the frontmatter
    (commit messages, session content, files changed) and add only the topics
    that clearly apply. Typical days get 1–3 topic tags; it's fine to add none.
 
-The final `tags:` array should look like:
+The final frontmatter should look like:
 ```yaml
 tags: [claude, journal, project/my-api, project/notes-app, topic/feature, topic/bug-fix]
+sessions: 3
+commits: 5
+tokens: 184200
 ```
 
 ---

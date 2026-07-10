@@ -26,19 +26,27 @@ Write this week's Claude Journal weekly rollup note into the Obsidian vault.
 
 ### 1. Compute the week range (robustly)
 
-This may run just after midnight into Monday. Always roll back to the **most
-recently completed** Mon–Sun week:
+Target the **week whose Sunday just finished (or is finishing tonight)**. This
+must produce the same week whether the task fires late Sunday evening or early
+Monday morning — a plain "most recently completed week" rule is wrong on
+Sunday night (it lands on the week *before* last, making every rollup 8 days
+stale — that was a real bug here).
 
 ```bash
 export TZ="{{TIMEZONE}}"
-# Today's day-of-week (1=Mon … 7=Sun)
+# Day-of-week (1=Mon … 7=Sun) and hour
 DOW=$(date +%u)
-# If it's Monday (1), the week that just ended started 7 days ago.
-# Otherwise, the most recent Monday is (DOW - 1) days ago; the week
-# before that started 7 more days back.
-if [ "$DOW" -eq 1 ]; then
+HOUR=$(date +%H)
+if [ "$DOW" -eq 7 ] && [ "$HOUR" -ge 18 ]; then
+  # Late Sunday (the intended 23:59-Sunday or a slightly-early Monday cron
+  # that fired before midnight): this week ends tonight — roll it up.
+  MONDAY=$(date -d '6 days ago' +%Y-%m-%d)
+elif [ "$DOW" -eq 1 ]; then
+  # Monday (the intended 00:15-Monday run): the week that just ended
+  # started 7 days ago.
   MONDAY=$(date -d '7 days ago' +%Y-%m-%d)
 else
+  # Any other day (manual/late run): most recently completed Mon–Sun week.
   MONDAY=$(date -d "$((DOW - 1 + 7)) days ago" +%Y-%m-%d)
 fi
 SUNDAY=$(date -d "$MONDAY + 6 days" +%Y-%m-%d)
@@ -89,9 +97,15 @@ tags: [claude, journal, weekly]
 
 ## 📊 Stats
 - Days active: N / 7
-- Total commits pushed: N
+- Total commits: N
+- Total tokens: N
 - Projects touched: N
 ```
+
+Compute the Stats from the daily notes' numeric frontmatter (`sessions`,
+`commits`, `tokens`) rather than by re-parsing section text: a day is active
+when `sessions > 0` or `commits > 0`; totals are straight sums across the 7
+notes.
 
 If the note already exists, merge rather than duplicate.
 

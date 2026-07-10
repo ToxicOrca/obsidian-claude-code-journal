@@ -5,6 +5,12 @@ tags: [claude, journal]
 
 # 🤖 Claude Journal
 
+## 🔥 Streak
+*Updated nightly by the daily summarizer.*
+
+- Current: **0 days**
+- Longest: **0 days**
+
 A daily log of what was worked on with Claude. A new note lands in `Daily/`
 each evening, automatically.
 
@@ -34,6 +40,11 @@ each evening, automatically.
 
 ## Recent months
 *Newest first. New entries appear here automatically.*
+
+- 
+
+## Recent years
+*Year-in-review notes. One per year, each January 1st.*
 
 - 
 

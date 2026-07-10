@@ -27,12 +27,15 @@ Write last month's Claude Journal monthly rollup note into the Obsidian vault.
 
 ```bash
 export TZ="{{TIMEZONE}}"
-PREV_YEAR=$(date -d "last month" +%Y)
-PREV_MONTH=$(date -d "last month" +%m)
-PREV_LABEL=$(date -d "last month" '+%B %Y')   # e.g. "June 2026"
-FIRST_DAY="${PREV_YEAR}-${PREV_MONTH}-01"
-# Last day of the previous month = day 0 of this month
+# Anchor on the last day of the previous month (= day before the 1st of the
+# current month). Never use `date -d "last month"` — GNU date subtracts one
+# calendar month from *today's day-of-month*, so a manual run on the 31st
+# overflows (Mar 31 - 1 month → Mar 3) and targets the wrong month.
 LAST_DAY=$(date -d "$(date +%Y-%m-01) - 1 day" +%Y-%m-%d)
+PREV_YEAR=$(date -d "$LAST_DAY" +%Y)
+PREV_MONTH=$(date -d "$LAST_DAY" +%m)
+PREV_LABEL=$(date -d "$LAST_DAY" '+%B %Y')   # e.g. "June 2026"
+FIRST_DAY="${PREV_YEAR}-${PREV_MONTH}-01"
 ```
 
 ### 2. Read daily notes
@@ -45,20 +48,21 @@ range `$FIRST_DAY` to `$LAST_DAY`. Parse each note's sections to collect:
 - Key decisions
 - Open to-dos
 
-Also note which dates had activity (any non-empty section) vs. no activity, for
-the heatmap.
+For activity levels, read each note's numeric frontmatter and compute
+`activity = commits + sessions` per day (notes written before these fields
+existed: estimate from the section text). This drives the heatmap and stats.
 
 ### 3. Build the activity heatmap
 
 Create a visual heatmap of the month using emoji squares, laid out as week rows
 (Mon–Sun). Each day gets one square:
 
-| Symbol | Meaning |
+| Symbol | Meaning (`commits + sessions` from daily frontmatter) |
 |--------|---------|
-| ⬜ | No activity |
-| 🟩 | Light (1–2 commits or sessions) |
-| 🟦 | Medium (3–5 commits or sessions) |
-| 🟪 | Heavy (6+ commits or sessions) |
+| ⬜ | 0 — no activity |
+| 🟩 | Light (1–2) |
+| 🟦 | Medium (3–5) |
+| 🟪 | Heavy (6+) |
 
 Layout example for a month starting on Wednesday:
 
@@ -110,10 +114,15 @@ Week 2:  ...
 
 ## 📊 Stats
 - Days active: N / <days-in-month>
-- Total commits pushed: N
+- Total commits: N
+- Total sessions: N
+- Total tokens: N
 - Projects touched: N
-- Most active day: <date> (N commits)
+- Most active day: <date> (commits + sessions = N)
 ```
+
+Compute all Stats by summing the daily notes' numeric frontmatter fields
+(`sessions`, `commits`, `tokens`).
 
 If the note already exists, merge rather than duplicate.
 
